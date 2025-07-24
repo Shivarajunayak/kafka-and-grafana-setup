@@ -1,0 +1,161 @@
+Kafka is installed on all 4 environments (dev, qa, uat and prod)
+We are using the KAFBAT to host the Kafka UI.
+
+
+Below is the architecture diagram
+
+Infrastructure Components in KafkaUI setup
+One Amazon Linux 3, t3.medium instance in private subnet of ETL VPC. Kafka UI is installed on the ec2 instance on a docker container. 
+
+A Network Load balancer in private subnets of ETL VPC listening on port 80 and forwarding to a target group  on port 8080 on the ec2 instance.
+
+An Application Load Balancer in the Network Account listening on port 443 with SSL configured and forwarding to port 80 of the private IP address’s of the Network Load Balancer.
+
+Kafka UI Source Github Link : 
+
+ GitHub - provectus/kafka-ui: Open-Source Web UI for Apache Kafka Management  (old one)
+
+GitHub - kafbat/kafka-ui: Open-Source Web UI for managing Apache Kafka clusters (current one)
+
+Process and commands to setup KafkaUI
+
+Create a Amazon Linux 2 and t3.medium ec2 instance with lowest 8GB EBS disk. KafkaUI does not need much disk space. Use Terraform to create the ec2 instance.
+
+Run the commands listed below to install the docker and docker-compose
+yum -y install docker
+systemctl enable docker
+systemctl start docker
+systemctl status docker
+
+curl -SL https://github.com/docker/compose/releases/download/v2.29.1/docker-compose-linux-x86_64  -o /usr/local/bin/docker-compose
+
+chmod 755 /usr/local/bin/docker-compose
+
+Insert the code pasted in below codeblock to a <env>-kafbat-compose.yaml file and make changes as necessary to update the endpoint and credentials accordingly.
+
+Run the command docker-compose -f dev-kafbat-compose.yaml up -d
+
+ 
+
+After Docker Container Starts, access the URL KafkaUI URL in  in Browser.
+
+For Dev, it is https://pubsub-dev.nonprod.hmclconnect.com/ 
+
+QA it is https://pubsub-qa.nonprod.hmclconnect.com/ 
+
+UAT it is https://pubsub-uat.nonprod.hmclconnect.com
+
+Prod it is https://pubsub.hmclconnect.com     (Note: Prod kafka topic view access is restricted only to DevOps team and Management as the messages in Kafka topics may contain sensitive information)
+
+
+The Devops Team would be having the credentials to Login. Once Logged in, Please follow setting up The Kafka broker and Connection Strings.
+
+ 
+
+Kafbat UI deployment commands
+Repo link with updated files: https://dev.azure.com/hero-ev-team/CVPT%20-%20Thor%20Apps/_git/thor-infra-devops?path=/kafka-ui-docker-configsConnect your Azure DevOps account 
+
+ 
+
+cat dev-kafbat-compose.yaml
+
+
+
+services:
+  kafka-ui:
+    container_name: kafbat-ui
+    image: ghcr.io/kafbat/kafka-ui:latest
+    ports:
+      - 8080:8080
+    environment:
+      KAFBAT_ALLOW_VIEW_FILTERS: "true"
+      KAFBAT_ALLOW_ADD_FILTERS: true
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: dev-kafkaui
+      SPRING_SECURITY_USER_PASSWORD: **************
+      KAFKA_CLUSTERS_0_READONLY: true
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: b-1.hmclcvdevmskcluster.sf21334123.c4.kafka.ap-south-1.amazonaws.com:9096,b-2.hmclcvdevmskcluster.sf21334123.c4.kafka.ap-south-1.amazonaws.com:9096
+      KAFKA_CLUSTERS_0_NAME: dev-msk-cluster
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-512
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="mskdevuser" password="********";
+
+
+cd /root
+#Use below command to stop the docker container
+docker-compose down
+#Use below command to start the docker container
+docker-compose -f dev-kafbat-compose.yml up -d
+docker-compose -f qa-kafbat-compose.yaml up -d
+docker-compose -f uat-kafbat-compose.yaml up -d
+ 
+
+Setup the docker-service to automatically start the containers upon EC2 startup.
+Create a systemd Service File
+First, SSH into your EC2 instance. Then, create a service file for your application using a text editor like nano or vim.
+
+
+
+sudo vi /etc/systemd/system/kafbat-docker-compose-app.service
+ 
+
+Add Content to the Service File
+
+Paste the following configuration into the file. You must modify the WorkingDirectory and potentially the ExecStart and ExecStop paths.
+
+
+
+[Unit]
+Description=Docker Compose Application Service
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+IMPORTANT: Change this to the directory of your docker-compose.yml file
+WorkingDirectory=/root
+Command to start the containers
+Use the full path to docker-compose. Add -d to run in detached mode.
+ExecStart=/usr/local/bin/docker-compose -f dev-kafbat-compose.yaml up -d
+Command to stop the containers
+ExecStop=/usr/local/bin/docker-compose -f dev-kafbat-compose.yaml down
+[Install]
+WantedBy=multi-user.target
+ 
+
+Enable and Start the Service
+Reload systemd to make it aware of your new service file.
+
+
+
+sudo systemctl daemon-reload
+ 
+
+Enable your service to start on boot.
+You should see a message confirming a symlink was created.
+
+
+
+sudo systemctl enable kafbat-docker-compose-app.service
+ 
+
+Start the service now to test it without rebooting.
+
+
+
+sudo systemctl start kafbat-docker-compose-app.service
+ 
+
+Check the status of your service to ensure it's running correctly.
+
+
+
+sudo systemctl status kafbat-docker-compose-app.service
+Now, the docker-compose containers will automatically start whenever your EC2 instance boots up.
+
+ 
+
+NOTE: OPTIONAL - not required
+Below cluster configurations methods are Optional and not required.
+
+Just keeping the screenshots for reference in future.
