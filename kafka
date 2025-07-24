@@ -1,0 +1,29 @@
+[root@ip-10-62-52-154 ~]# docker-compose -f qa-kafbat-compose.yaml down
+[+] Running 2/2
+ ✔ Container kafbat-ui   Removed                                                                                                                                 2.5s
+ ✔ Network root_default  Removed                                                                                                                                 0.5s
+[root@ip-10-62-52-154 ~]# docker-compose -f qa-kafbat-compose.yaml up -d
+[+] Running 2/2
+ ✔ Network root_default  Created                                                                                                                                 0.2s
+ ✔ Container kafbat-ui   Started                                                                                                                                 0.4s
+[root@ip-10-62-52-154 ~]# cat qa
+cat: qa: No such file or directory
+[root@ip-10-62-52-154 ~]# cat qa-kafbat-compose.yaml
+services:
+  kafka-ui:
+    container_name: kafbat-ui
+    image: ghcr.io/kafbat/kafka-ui:latest
+    ports:
+      - 8080:8080
+    environment:
+      KAFBAT_ALLOW_VIEW_FILTERS: "true"
+      KAFBAT_ALLOW_ADD_FILTERS: true
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: hmcl-cv-qa-kafkaui
+      SPRING_SECURITY_USER_PASSWORD: L?h25Vo#!0O
+      KAFKA_CLUSTERS_0_READONLY: true
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: b-1.hmclcvqamskcluster.i4vh54.c2.kafka.ap-south-1.amazonaws.com:9096,b-2.hmclcvqamskcluster.i4vh54.c2.kafka.ap-south-1.amazonaws.com:9096
+      KAFKA_CLUSTERS_0_NAME: hmcl-cv-qa-msk-cluster
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-512
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="mskqauser" password="mskhmclqapassword!";
