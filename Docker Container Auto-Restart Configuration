@@ -1,0 +1,137 @@
+Docker Container Auto-Restart Configuration – thor-ui
+Purpose
+
+This page documents the steps performed to ensure the thor-ui Docker container automatically restarts when the Docker service or EC2 instance is restarted.
+
+Scope
+
+Host: ip-10-62-48-145
+
+Container: thor-ui
+
+Docker Engine managed via systemd
+
+Initial State
+
+The container existed but was not configured to restart automatically.
+
+Container Status
+docker ps -a
+
+Result:
+
+Container thor-ui was in Exited state.
+
+Restart Policy Check
+docker inspect thor-ui | grep RestartPolicy -A 5
+
+Observed:
+
+RestartPolicy: no
+
+This means the container would not restart automatically after:
+
+Docker daemon restart
+
+EC2 instance reboot
+
+Actions Performed
+1. Start the Container
+docker start thor-ui
+
+Container moved to Up state
+
+Port mapping confirmed: 80:80
+
+2. Update Restart Policy
+docker update --restart unless-stopped thor-ui
+
+This ensures:
+
+Container restarts automatically on Docker/host restart
+
+Container does not restart only if explicitly stopped by a user
+
+3. Restart Docker Service
+systemctl restart docker
+
+Verified container restarted automatically
+
+4. Enable Docker Service on Boot
+systemctl enable docker
+systemctl is-enabled docker
+
+Result:
+
+Docker service set to start automatically on instance boot
+
+Final Validation
+Restart Policy Verification
+docker inspect thor-ui | grep RestartPolicy -A 5
+
+Confirmed:
+
+RestartPolicy: unless-stopped
+
+Container Status
+docker ps -a
+
+Confirmed:
+
+Container thor-ui is Up and running
+
+Expected Behavior (Post Configuration)
+Scenario	Expected Result
+Docker service restart	Container restarts automatically
+EC2 instance reboot	Container starts automatically
+Manual docker stop thor-ui	Container remains stopped
+Notes / Best Practices
+
+For production workloads, consider managing containers using:
+
+Docker Compose
+
+systemd service wrappers
+
+Kubernetes / ECS
+
+Always verify restart policy after container creation or updates
+
+Conclusion
+
+The thor-ui container is now correctly configured to automatically restart on Docker daemon or EC2 instance restarts using the unless-stopped restart policy.
+
+
+
+[root@ip-10-62-48-145 ~]# docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED      STATUS                  PORTS     NAMES
+a42695ce2c6c   d6efe809b09a   "/docker-entrypoint.…"   2 days ago   Exited (0) 2 days ago             thor-ui
+[root@ip-10-62-48-145 ~]# docker start a42695ce2c6c
+a42695ce2c6c
+[root@ip-10-62-48-145 ~]# docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED      STATUS        PORTS                               NAMES
+a42695ce2c6c   d6efe809b09a   "/docker-entrypoint.…"   2 days ago   Up 1 second   0.0.0.0:80->80/tcp, :::80->80/tcp   thor-ui
+[root@ip-10-62-48-145 ~]# docker inspect thor-ui | grep RestartPolicy -A 5
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+[root@ip-10-62-48-145 ~]# docker update --restart unless-stopped thor-ui
+thor-ui
+[root@ip-10-62-48-145 ~]# systemctl restart docker
+[root@ip-10-62-48-145 ~]# docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED      STATUS         PORTS                               NAMES
+a42695ce2c6c   d6efe809b09a   "/docker-entrypoint.…"   2 days ago   Up 3 seconds   0.0.0.0:80->80/tcp, :::80->80/tcp   thor-ui
+[root@ip-10-62-48-145 ~]# systemctl enable docker
+[root@ip-10-62-48-145 ~]# systemctl is-enabled docker
+enabled
+[root@ip-10-62-48-145 ~]# docker inspect thor-ui | grep RestartPolicy -A 5
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+[root@ip-10-62-48-145 ~]#
